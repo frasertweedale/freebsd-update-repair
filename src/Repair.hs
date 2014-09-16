@@ -1,4 +1,8 @@
-module Repair where
+module Repair
+  (
+    repair
+  , defaultRepairConfig
+  ) where
 
 import Control.Monad
 import Control.Monad.Free
@@ -10,18 +14,39 @@ import Index
 import Inspect
 import Object
 
-repair :: Free Discrepancy r -> IO ()
-repair (Free (Missing a k)) = return ()
-repair (Free (ModeDiffers a k)) = return ()
-repair (Free (DigestDiffers a k)) = repairDigest a >> repair k
-repair _ = return ()
+data RepairConfig = RepairConfig
+  { autoPutPrefixes :: [FilePath]
+  }
 
-repairDigest :: IndexEntry -> IO ()
-repairDigest a = confirm ("Digest differs for " ++ filePath a ++ ". Repair?") $
-  putObject (target a) (filePath a)
+defaultRepairConfig :: RepairConfig
+defaultRepairConfig = RepairConfig
+  { autoPutPrefixes =
+    [ "/bin/", "/rescue/", "/usr/include/", "/usr/src/", "/usr/lib/"
+    , "/usr/libexec/", "/usr/sbin/", "/usr/share/"
+    ]
+  }
+
+repair :: RepairConfig -> Free Discrepancy r -> IO ()
+repair conf (Free (Missing a k)) = repairMissing conf a >> repair conf k
+repair conf (Free (ModeDiffers a k)) = repair conf k
+repair conf (Free (DigestDiffers a k)) = repairDigest conf a >> repair conf k
+repair _ _ = return ()
+
+repairDigest :: RepairConfig -> IndexEntry -> IO ()
+repairDigest conf a = if any (`isPrefixOf` filePath a) (autoPutPrefixes conf)
+  then put a
+  else confirm ("Digest differs for " ++ filePath a ++ ". Repair?") (put a)
+
+repairMissing :: RepairConfig -> IndexEntry -> IO ()
+repairMissing conf a = if any (`isPrefixOf` filePath a) (autoPutPrefixes conf)
+  then put a
+  else confirm ("Missing " ++ filePath a ++ ". Install?") (put a)
 
 confirm :: String -> IO () -> IO ()
 confirm s m = do
-  putStr (s ++ " [y/n]:") >> hFlush stdout
+  putStr (s ++ " [y/N]:") >> hFlush stdout
   l <- getLine
   when ("y" `isPrefixOf` map toLower l) m
+
+put :: IndexEntry -> IO ()
+put a = putObject (target a) (filePath a)

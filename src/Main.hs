@@ -11,15 +11,17 @@ import Repair
 
 commands :: Parser (IO ())
 commands = subparser
-  (   command "inspect" (info (pure $ run $ putStr . inspect) mempty)
-  <>  command "repair" (info (pure $ run repair) mempty)
+  (   command "inspect" (info (pure $ run inspect) mempty)
+  <>  command "repair" (info (pure $ run (repair defaultRepairConfig)) mempty)
   )
 
 run :: (Free Discrepancy () -> IO ()) -> IO ()
 run interpreter =
   runExceptT (liftM2 M.union (readIndex "INDEX-NEW") (readIndex "INDEX-ALL"))
-  >>= inspectIndex . either (error . show) id
+  >>= inspectIndex ignore . either (error . show) id
   >>= interpreter
+  where
+  ignore = ["/etc/", "/usr/share/doc/", "/var/db/"]
 
 main :: IO ()
 main = join $ execParser (info commands mempty)

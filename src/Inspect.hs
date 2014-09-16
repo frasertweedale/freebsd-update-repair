@@ -2,6 +2,7 @@ module Inspect where
 
 import Control.Applicative
 import Data.Char (isSpace)
+import Data.List (isPrefixOf)
 import Data.Maybe (isNothing)
 import Data.Traversable (mapM)
 
@@ -50,23 +51,27 @@ checkDigest entry = when (fileType entry == F && isNothing (link entry)) $ do
   where
   trimDigest = takeWhile (not . isSpace)
 
-inspectEntry :: IndexEntry -> WriterT (Action (Free Discrepancy)) IO ()
-inspectEntry entry = do
-  exist <- lift $ fileExist (filePath entry)
-  if exist
-  then
-    checkDigest entry
-  else
-    tell $ missing entry
+inspectEntry
+  :: [FilePath]   -- ^ List of paths to ignore.
+  -> IndexEntry
+  -> WriterT (Action (Free Discrepancy)) IO ()
+inspectEntry ignore entry =
+  unless (any (`isPrefixOf` filePath entry) ignore) $ do
+    exist <- lift $ fileExist (filePath entry)
+    if exist
+    then
+      checkDigest entry
+    else
+      tell $ missing entry
 
-inspectIndex :: Map a IndexEntry -> IO (Free Discrepancy ())
-inspectIndex = fmap getAction . execWriterT . mapM inspectEntry
+inspectIndex :: [FilePath] -> Map a IndexEntry -> IO (Free Discrepancy ())
+inspectIndex ignore = fmap getAction . execWriterT . mapM (inspectEntry ignore)
 
-inspect :: Free Discrepancy r -> String
-inspect (Free (Missing a k))
-  = "MISS " ++ filePath a ++ "\n" ++ inspect k
-inspect (Free (ModeDiffers a k))
-  = "MODE " ++ filePath a ++ "\n" ++ inspect k
-inspect (Free (DigestDiffers a k))
-  = "HASH " ++ filePath a ++ "\n" ++ inspect k
-inspect _ = ""
+inspect :: Free Discrepancy r -> IO ()
+inspect (Free (Missing a k)) =
+  putStrLn ("MISS " ++ filePath a) >> inspect k
+inspect (Free (ModeDiffers a k)) =
+  putStrLn ("MODE " ++ filePath a) >> inspect k
+inspect (Free (DigestDiffers a k)) =
+  putStrLn ("HASH " ++ filePath a) >> inspect k
+inspect _ = return ()
