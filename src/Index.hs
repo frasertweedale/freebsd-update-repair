@@ -49,9 +49,9 @@ data IndexEntry = IndexEntry
   , subComponent :: SubComponent
   , filePath :: FilePath
   , fileType :: FileType
-  , uid :: Int
-  , gid :: Int
-  , fileMode :: OctMode
+  , uid :: CUid
+  , gid :: CGid
+  , mode :: CMode
   , flags :: Int
   , target :: String -- TODO Either Digest FilePath
   , link :: Maybe String  -- hardlink
@@ -65,9 +65,9 @@ instance FromRecord IndexEntry where
     <*> v .! 1
     <*> v .! 2
     <*> v .! 3
-    <*> v .! 4
-    <*> v .! 5
-    <*> v .! 6
+    <*> fmap fromIntegral (v .! 4 :: Parser Int)
+    <*> fmap fromIntegral (v .! 5 :: Parser Int)
+    <*> fmap getMode (v .! 6)
     <*> v .! 7
     <*> v .! 8
     <*> v .! 9

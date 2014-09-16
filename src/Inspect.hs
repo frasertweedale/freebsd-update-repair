@@ -1,6 +1,13 @@
-module Inspect where
+module Inspect
+  (
+    Discrepancy(..)
+
+  , inspect
+  , inspectIndex
+  ) where
 
 import Control.Applicative
+import Data.Bits
 import Data.Char (isSpace)
 import Data.List (isPrefixOf)
 import Data.Maybe (isNothing)
@@ -18,26 +25,34 @@ import Index
 
 data Discrepancy k
   = Missing IndexEntry k
-  | ModeDiffers IndexEntry k
   | DigestDiffers IndexEntry k
   -- | TypeDiffers FilePath FileType FileType k
-  -- | OwnerDiffers FilePath Int Int k
-  -- | GroupDiffers FilePath Int Int k
+  | ModeDiffers IndexEntry k
+  | OwnerDiffers IndexEntry k
+  | GroupDiffers IndexEntry k
   deriving (Show)
 
 instance Functor Discrepancy where
   fmap f (Missing a k) = Missing a (f k)
-  fmap f (ModeDiffers a k) = ModeDiffers a (f k)
   fmap f (DigestDiffers a k) = DigestDiffers a (f k)
+  fmap f (ModeDiffers a k) = ModeDiffers a (f k)
+  fmap f (OwnerDiffers a k) = OwnerDiffers a (f k)
+  fmap f (GroupDiffers a k) = GroupDiffers a (f k)
 
 missing :: IndexEntry -> Action (Free Discrepancy)
 missing a = Action $ Free (Missing a (return ()))
 
+digestDiffers :: IndexEntry -> Action (Free Discrepancy)
+digestDiffers a = Action $ Free (DigestDiffers a (return ()))
+
 modeDiffers :: IndexEntry -> Action (Free Discrepancy)
 modeDiffers a = Action $ Free (ModeDiffers a (return ()))
 
-digestDiffers :: IndexEntry -> Action (Free Discrepancy)
-digestDiffers a = Action $ Free (DigestDiffers a (return ()))
+ownerDiffers :: IndexEntry -> Action (Free Discrepancy)
+ownerDiffers a = Action $ Free (OwnerDiffers a (return ()))
+
+groupDiffers :: IndexEntry -> Action (Free Discrepancy)
+groupDiffers a = Action $ Free (GroupDiffers a (return ()))
 
 -- | Check whether the digest matches.
 --
@@ -51,6 +66,19 @@ checkDigest entry = when (fileType entry == F && isNothing (link entry)) $ do
   where
   trimDigest = takeWhile (not . isSpace)
 
+-- | Check mode, owner and group of file.
+--
+-- Hardlinks are ignored, except for the "principal" file.
+--
+checkStatus :: IndexEntry -> WriterT (Action (Free Discrepancy)) IO ()
+checkStatus entry = when (isNothing (link entry)) $ do
+  status <- lift $ getSymbolicLinkStatus (filePath entry)
+  -- TODO check type
+  unless (fileOwner status == uid entry) $ tell (ownerDiffers entry)
+  unless (fileGroup status == gid entry) $ tell (groupDiffers entry)
+  unless (fileMode status .&. 0o7777 `xor` mode entry == 0)
+    $ tell (modeDiffers entry)
+
 inspectEntry
   :: [FilePath]   -- ^ List of paths to ignore.
   -> IndexEntry
@@ -61,6 +89,7 @@ inspectEntry ignore entry =
     if exist
     then
       checkDigest entry
+      >> checkStatus entry
     else
       tell $ missing entry
 
@@ -74,4 +103,8 @@ inspect (Free (ModeDiffers a k)) =
   putStrLn ("MODE " ++ filePath a) >> inspect k
 inspect (Free (DigestDiffers a k)) =
   putStrLn ("HASH " ++ filePath a) >> inspect k
+inspect (Free (OwnerDiffers a k)) =
+  putStrLn (" UID " ++ filePath a) >> inspect k
+inspect (Free (GroupDiffers a k)) =
+  putStrLn (" GID " ++ filePath a) >> inspect k
 inspect _ = return ()
