@@ -96,15 +96,15 @@ inspectEntry ignore entry =
 inspectIndex :: [FilePath] -> Map a IndexEntry -> IO (Free Discrepancy ())
 inspectIndex ignore = fmap getAction . execWriterT . mapM (inspectEntry ignore)
 
-inspect :: Free Discrepancy r -> IO ()
-inspect (Free (Missing a k)) =
-  putStrLn ("MISS " ++ filePath a) >> inspect k
-inspect (Free (ModeDiffers a k)) =
-  putStrLn ("MODE " ++ filePath a) >> inspect k
-inspect (Free (DigestDiffers a k)) =
-  putStrLn ("HASH " ++ filePath a) >> inspect k
-inspect (Free (OwnerDiffers a k)) =
-  putStrLn (" UID " ++ filePath a) >> inspect k
-inspect (Free (GroupDiffers a k)) =
-  putStrLn (" GID " ++ filePath a) >> inspect k
-inspect _ = return ()
+inspect :: a -> Free Discrepancy r -> IO ()
+inspect conf (Free (Missing a k)) =
+  putStrLn ("MISS " ++ filePath a) >> inspect conf k
+inspect conf (Free (ModeDiffers a k)) =
+  putStrLn ("MODE " ++ filePath a) >> inspect conf k
+inspect conf (Free (DigestDiffers a k)) =
+  putStrLn ("HASH " ++ filePath a) >> inspect conf k
+inspect conf (Free (OwnerDiffers a k)) =
+  putStrLn (" UID " ++ filePath a) >> inspect conf k
+inspect conf (Free (GroupDiffers a k)) =
+  putStrLn (" GID " ++ filePath a) >> inspect conf k
+inspect _ _ = return ()

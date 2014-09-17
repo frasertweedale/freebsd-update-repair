@@ -24,6 +24,7 @@ executable freebsd-update-repair
     , bifunctors
     , bytestring
     , cassava
+    , configurator
     , containers
     , free
     , mtl >= 2.2

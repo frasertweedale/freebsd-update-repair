@@ -1,0 +1,2 @@
+ignorePrefixes = ["/etc/", "/usr/share/doc/", "/var/db/", "/boot/", "/usr/share/games"]
+autoRepairPrefixes = ["/usr/include/", "/usr/src/", "/usr/lib/", "/usr/libexec/", "/usr/bin/", "/usr/sbin/", "/usr/share/"]
