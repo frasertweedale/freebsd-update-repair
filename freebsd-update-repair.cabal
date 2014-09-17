@@ -4,16 +4,41 @@
 name:                freebsd-update-repair
 version:             0.1.0.0
 synopsis:            freebsd-update(8) system update and repair tool
--- description:         
+description:
+  .
+  A program for inspecting and restoring the state of a FreeBSD
+  system with respect to a freebsd-update(8) index.
+  .
+  Descriptions of sub-commands follow.
+  .
+  /inspect/
+  .
+  Print a summary of differences between the state of the system
+  and the index.
+  .
+  /repair/
+  .
+  Restore the state of the system to match the index.  The
+  'autoRepairPrefies' config can be used to specify which paths
+  are automatically repaired.  Discrepancies at paths /not/ matching
+  one of these prefixes will prompt the user for repair.
+
 license:             MIT
 license-file:        LICENSE
 author:              Fraser Tweedale
 maintainer:          frase@frase.id.au
--- copyright:           
+copyright:           Copyright (C) 2014  Fraser Tweedale
 category:            System, BSD
 build-type:          Simple
 -- extra-source-files:  
 cabal-version:       >=1.10
+
+extra-source-files:
+  freebsd-update-repair.conf.sample
+
+source-repository head
+  type: git
+  location: https://github.com/frasertweedale/freebsd-update-repair.git
 
 executable freebsd-update-repair
   main-is:             Main.hs
