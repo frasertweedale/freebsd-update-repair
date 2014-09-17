@@ -7,6 +7,7 @@ module Repair
 
 import Control.Applicative
 import Control.Monad
+import Control.Monad.Except (catchError)
 import Control.Monad.Free
 import Data.Char (toLower)
 import Data.Configurator
@@ -59,4 +60,4 @@ confirm s m = do
   when ("y" `isPrefixOf` map toLower l) m
 
 put :: IndexEntry -> IO ()
-put a = putObject (target a) (filePath a)
+put a = putObject (target a) (filePath a) `catchError` print
