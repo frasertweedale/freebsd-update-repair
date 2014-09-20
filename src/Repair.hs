@@ -15,7 +15,7 @@ import Data.Configurator.Types (Config)
 import Data.Foldable (forM_)
 import Data.List (isPrefixOf)
 import System.IO
-import System.Posix (createLink, removeLink)
+import System.Posix (createLink, removeLink, setFileMode)
 
 import Index
 import Inspect
@@ -58,7 +58,13 @@ repairInode conf a = do
   lnk = filePath a
 
 repairMode :: Config -> IndexEntry -> IO ()
-repairMode _ _ = return ()
+repairMode conf a = do
+  auto <- any (`isPrefixOf` filePath a) <$> autoRepairPrefixes conf
+  if auto
+    then m
+    else confirm (filePath a ++ " has incorrect permission. Repair?") m
+  where
+  m = setFileMode (filePath a) (mode a)
 
 repairOwner :: Config -> IndexEntry -> IO ()
 repairOwner _ _ = return ()
