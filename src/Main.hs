@@ -1,10 +1,8 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 import Data.Monoid (mempty)
 
 import Control.Monad.Except
 import Control.Monad.Free (Free)
-import Data.Configurator
+import Data.Configurator (Worth(..), load)
 import Data.Configurator.Types (Config)
 import qualified Data.Map as M
 import Options.Applicative
@@ -23,10 +21,9 @@ commands = subparser
 
 run :: (Config -> Free Discrepancy () -> IO ()) -> Config -> IO ()
 run interpreter conf = do
-  ignorePrefixes <- lookupDefault [] conf "ignorePrefixes"
   index <-
     runExceptT (liftM2 M.union (readIndex "INDEX-NEW") (readIndex "INDEX-ALL"))
-  diff <- inspectIndex ignorePrefixes $ either (error . show) id index
+  diff <- inspectIndex conf $ either (error . show) id index
   interpreter conf diff
 
 main :: IO ()

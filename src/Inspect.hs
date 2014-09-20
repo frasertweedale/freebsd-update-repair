@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Inspect
   (
     Discrepancy(..)
@@ -16,6 +18,8 @@ import Data.Traversable (mapM)
 import Prelude hiding (mapM)
 import Control.Monad.Free
 import Control.Monad.Writer hiding (mapM)
+import Data.Configurator (lookupDefault)
+import Data.Configurator.Types (Config)
 import Data.Map (Map)
 import Data.Semigroup.Monad
 import System.Posix
@@ -92,12 +96,23 @@ checkStatus entry = do
         unless (fileID status == fileID targetStatus) $ tell (inodeDiffers entry)
 
 
+shouldIgnore :: Config -> IndexEntry -> IO Bool
+shouldIgnore conf entry = do
+  ignorePrefixes <- lookupDefault [] conf "ignorePrefixes"
+  ignoreComponents <- lookupDefault [] conf "ignoreComponents"
+  let fullComponent = component entry ++ "/" ++ subComponent entry
+  return $
+    any (`isPrefixOf` filePath entry) ignorePrefixes
+    || component entry `elem` ignoreComponents
+    || fullComponent `elem` ignoreComponents
+
 inspectEntry
-  :: [FilePath]   -- ^ List of paths to ignore.
+  :: Config
   -> IndexEntry
   -> WriterT (Action (Free Discrepancy)) IO ()
-inspectEntry ignore entry =
-  unless (any (`isPrefixOf` filePath entry) ignore) $ do
+inspectEntry conf entry = do
+  ignore <- lift $ shouldIgnore conf entry
+  unless ignore $ do
     exist <- lift $ fileExist (filePath entry)
     if exist
     then
@@ -106,8 +121,8 @@ inspectEntry ignore entry =
     else
       tell $ missing entry
 
-inspectIndex :: [FilePath] -> Map a IndexEntry -> IO (Free Discrepancy ())
-inspectIndex ignore = fmap getAction . execWriterT . mapM (inspectEntry ignore)
+inspectIndex :: Config -> Map a IndexEntry -> IO (Free Discrepancy ())
+inspectIndex conf = fmap getAction . execWriterT . mapM (inspectEntry conf)
 
 inspect :: a -> Free Discrepancy r -> IO ()
 inspect conf (Free (Missing a k)) =
