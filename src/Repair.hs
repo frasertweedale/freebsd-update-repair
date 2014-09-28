@@ -22,12 +22,18 @@ import Inspect
 import Object
 
 repair :: Config -> Free Discrepancy r -> IO ()
-repair conf (Free (Missing a k)) = repairMissing conf a >> repair conf k
-repair conf (Free (DigestDiffers a k))  = repairDigest conf a >> repair conf k
-repair conf (Free (InodeDiffers a k))   = repairInode conf a >> repair conf k
-repair conf (Free (ModeDiffers a k))    = repairMode conf a >> repair conf k
-repair conf (Free (OwnerDiffers a k))   = repairOwner conf a >> repair conf k
-repair conf (Free (GroupDiffers a k))   = repairGroup conf a >> repair conf k
+repair conf (Free f) =
+  let
+    (eff, k) = go f
+  in
+    eff `catchError` print >> repair conf k
+  where
+  go (Missing a k)        = (repairMissing conf a, k)
+  go (DigestDiffers a k)  = (repairDigest conf a, k)
+  go (InodeDiffers a k)   = (repairInode conf a, k)
+  go (ModeDiffers a k)    = (repairMode conf a, k)
+  go (OwnerDiffers a k)   = (repairOwner conf a, k)
+  go (GroupDiffers a k)   = (repairGroup conf a, k)
 repair _ _ = return ()
 
 autoRepairPrefixes :: Config -> IO [String]
@@ -79,4 +85,4 @@ confirm s m = do
   when ("y" `isPrefixOf` map toLower l) m
 
 put :: IndexEntry -> IO ()
-put a = putObject (target a) (filePath a) `catchError` print
+put a = putObject (target a) (filePath a)
