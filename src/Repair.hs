@@ -14,9 +14,8 @@ import Data.Configurator
 import Data.Configurator.Types (Config)
 import Data.Foldable (forM_)
 import Data.List (isPrefixOf)
-import System.Directory (createDirectory)
 import System.IO
-import System.Posix (createLink, removeLink, setFileMode)
+import System.Posix (createDirectory, createLink, removeLink, setFileMode)
 
 import Index
 import Inspect
@@ -44,7 +43,7 @@ repairMissing :: Config -> IndexEntry -> IO ()
 repairMissing c a =
   isAuto c a >>= confirm ("Missing " ++ filePath a ++ ". Install?")
     (case fileType a of
-      D -> createDirectory (filePath a)
+      D -> createDirectory (filePath a) (mode a)
       F -> put a
       L -> putStrLn "not implemented: write symbolic links"
     )

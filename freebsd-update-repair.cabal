@@ -51,7 +51,6 @@ executable freebsd-update-repair
     , cassava
     , configurator
     , containers
-    , directory
     , free
     , mtl >= 2.2
     , optparse-applicative
