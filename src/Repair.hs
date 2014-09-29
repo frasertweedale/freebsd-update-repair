@@ -40,37 +40,25 @@ autoRepairPrefixes :: Config -> IO [String]
 autoRepairPrefixes conf = lookupDefault [] conf "autoRepairPrefixes"
 
 repairMissing :: Config -> IndexEntry -> IO ()
-repairMissing conf a = do
-  auto <- any (`isPrefixOf` filePath a) <$> autoRepairPrefixes conf
-  if auto
-    then put a
-    else confirm ("Missing " ++ filePath a ++ ". Install?") (put a)
+repairMissing c a =
+  isAuto c a >>= confirm ("Missing " ++ filePath a ++ ". Install?") (put a)
 
 repairDigest :: Config -> IndexEntry -> IO ()
-repairDigest conf a = do
-  auto <- any (`isPrefixOf` filePath a) <$> autoRepairPrefixes conf
-  if auto
-    then put a
-    else confirm ("Digest differs for " ++ filePath a ++ ". Repair?") (put a)
+repairDigest c a =
+  isAuto c a >>= confirm ("Digest differs for " ++ filePath a ++ ". Repair?")
+    (put a)
 
 repairInode :: Config -> IndexEntry -> IO ()
-repairInode conf a = do
-  auto <- any (`isPrefixOf` filePath a) <$> autoRepairPrefixes conf
-  if auto
-    then m
-    else confirm (filePath a ++ " needs to be hard linked. Repair?") m
+repairInode c a =
+  isAuto c a >>= confirm (filePath a ++ " needs to be hard linked. Repair?")
+    (forM_ (link a) (\tgt -> removeLink lnk >> createLink tgt lnk))
   where
-  m = forM_ (link a) (\tgt -> removeLink lnk >> createLink tgt lnk)
   lnk = filePath a
 
 repairMode :: Config -> IndexEntry -> IO ()
-repairMode conf a = do
-  auto <- any (`isPrefixOf` filePath a) <$> autoRepairPrefixes conf
-  if auto
-    then m
-    else confirm (filePath a ++ " has incorrect permission. Repair?") m
-  where
-  m = setFileMode (filePath a) (mode a)
+repairMode c a =
+  isAuto c a >>= confirm (filePath a ++ " has incorrect permission. Repair?")
+    (setFileMode (filePath a) (mode a))
 
 repairOwner :: Config -> IndexEntry -> IO ()
 repairOwner _ _ = return ()
@@ -78,8 +66,11 @@ repairOwner _ _ = return ()
 repairGroup :: Config -> IndexEntry -> IO ()
 repairGroup _ _ = return ()
 
-confirm :: String -> IO () -> IO ()
-confirm s m = do
+isAuto :: Config -> IndexEntry -> IO Bool
+isAuto conf a = any (`isPrefixOf` filePath a) <$> autoRepairPrefixes conf
+
+confirm :: String -> IO () -> Bool -> IO ()
+confirm s m auto = if auto then m else do
   putStr (s ++ " [y/N]: ") >> hFlush stdout
   l <- getLine
   when ("y" `isPrefixOf` map toLower l) m
