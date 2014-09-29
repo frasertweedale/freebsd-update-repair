@@ -14,6 +14,7 @@ import Data.Configurator
 import Data.Configurator.Types (Config)
 import Data.Foldable (forM_)
 import Data.List (isPrefixOf)
+import System.Directory (createDirectory)
 import System.IO
 import System.Posix (createLink, removeLink, setFileMode)
 
@@ -41,7 +42,12 @@ autoRepairPrefixes conf = lookupDefault [] conf "autoRepairPrefixes"
 
 repairMissing :: Config -> IndexEntry -> IO ()
 repairMissing c a =
-  isAuto c a >>= confirm ("Missing " ++ filePath a ++ ". Install?") (put a)
+  isAuto c a >>= confirm ("Missing " ++ filePath a ++ ". Install?")
+    (case fileType a of
+      D -> createDirectory (filePath a)
+      F -> put a
+      L -> putStrLn "not implemented: write symbolic links"
+    )
 
 repairDigest :: Config -> IndexEntry -> IO ()
 repairDigest c a =
