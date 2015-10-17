@@ -45,7 +45,7 @@ executable freebsd-update-repair
   -- other-modules:       
   -- other-extensions:    
   build-depends:
-    base >=4.7 && <4.8
+    base >= 4.7 && < 5
     , bifunctors
     , bytestring
     , cassava
